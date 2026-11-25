@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mini Farm Island 3D</title>
+    <!-- Google Fonts: Kanit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- Tone.js for Procedural Sound Effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+    <style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.9);
+            --glass-shadow: 0 10px 30px rgba(0, 40, 80, 0.12);
+            --primary-green: #2ecc71;
+            --primary-green-dark: #27ae60;
+            --primary-gold: #f1c40f;
+            --primary-gold-dark: #f39c12;
+            --text-dark: #2c3e50;
+            --text-muted: #7f8c8d;
+            --danger: #e74c3c;
+            --info: #3498db;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Kanit', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(180deg, #87CEEB 0%, #64B5F6 100%);
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            cursor: grab;
+        }
+
+        #canvas-container:active {
+            cursor: grabbing;
+        }
+
+        /* Glassmorphism Panels */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1.5px solid var(--glass-border);
+            border-radius: 20px;
+            box-shadow: var(--glass-shadow);
+            color: var(--text-dark);
+            z-index: 10;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        /* Top-Left Stats Panel */
+        #stats-panel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 240px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .game-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #27ae60;
+            margin-bottom: 2px;
+        }
+
+        .stat-box {
+            background: rgba(240, 244, 248, 0.75);
+            border-radius: 14px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .stat-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .icon-coin {
+            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+            color: #fff;
+            box-shadow: 0 3px 8px rgba(243, 156, 18, 0.3);
+        }
+
+        .icon-box {
+            background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+            color: #fff;
+            box-shadow: 0 3px 8px rgba(52, 152, 219, 0.25);
+        }
+
+        .stat-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.1;
+        }
+
+        .stat-value {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        #sell-btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 14px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            background: #dce1e5;
+            color: #95a5a6;
+        }
+
+        #sell-btn.active {
+            background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%);
+            color: #fff;
+            box-shadow: 0 5px 15px rgba(243, 156, 18, 0.4);
+        }
+
+        #sell-btn.active:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(243, 156, 18, 0.5);
+        }
+
+        #sell-btn.active:active {
+            transform: scale(0.96);
+        }
+
+        .sell-hint {
+            text-align: center;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: -6px;
+        }
+
+        /* Top-Right Shop Panel */
+        #shop-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 280px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .shop-tabs {
+            display: flex;
+            background: rgba(230, 236, 240, 0.8);
+            border-radius: 12px;
+            padding: 4px;
+            gap: 4px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 8px 6px;
+            border-radius: 9px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .tab-btn.active {
+            background: #fff;
+            color: var(--primary-green-dark);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .shop-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .shop-item {
+            background: #fff;
+            border: 2px solid transparent;
+            border-radius: 14px;
+            padding: 10px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        }
+
+        .shop-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 12px rgba(0,0,0,0.07);
+        }
+
+        .shop-item.selected {
+            border-color: var(--primary-green);
+            background: #f0fdf4;
+        }
+
+        .shop-item.disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .item-left {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .item-title {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .item-sub {
+            font-size: 0.75rem;
+            color: #e67e22;
+            font-weight: 500;
+        }
+
+        .item-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+        }
+
+        .item-sell {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--primary-green-dark);
+        }
+
+        .item-time {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        /* Bottom Guide Pill */
+        #bottom-guide {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(44, 62, 80, 0.85);
+            backdrop-filter: blur(8px);
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 30px;
+            font-size: 0.82rem;
+            z-index: 10;
+            white-space: nowrap;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            pointer-events: none;
+        }
+
+        #bottom-guide span {
+            color: #f1c40f;
+            font-weight: 600;
+        }
+
+        /* Robot 2D Floating Badge */
+        #robot-badge {
+            position: fixed;
+            top: 0;
+            left: 0;
+            transform: translate(-50%, -100%);
+            background: #2c3e50;
+            color: #f1c40f;
+            border: 2px solid #f1c40f;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            z-index: 8;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.1s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        #robot-badge:hover {
+            transform: translate(-50%, -105%) scale(1.05);
+        }
+
+        #robot-badge.buff {
+            background: #3498db;
+            color: #fff;
+            border-color: #fff;
+        }
+
+        #robot-badge.broken {
+            background: #e74c3c;
+            color: #fff;
+            border-color: #c0392b;
+            cursor: not-allowed;
+        }
+
+        /* Quiz Modal */
+        #quiz-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 50;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        #quiz-modal-overlay.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .quiz-card {
+            background: #fff;
+            border: 3px solid #3498db;
+            border-radius: 24px;
+            width: 100%;
+            max-width: 380px;
+            padding: 24px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+            transform: scale(0.9);
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        #quiz-modal-overlay.show .quiz-card {
+            transform: scale(1);
+        }
+
+        .quiz-header {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #2980b9;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .quiz-sub {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .quiz-question-box {
+            background: #f1f5f9;
+            border-radius: 16px;
+            padding: 18px;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 18px;
+            letter-spacing: 1px;
+        }
+
+        .quiz-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .quiz-opt-btn {
+            background: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 1.15rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 0 #2980b9;
+        }
+
+        .quiz-opt-btn:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .quiz-opt-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #2980b9;
+        }
+
+        .quiz-close-btn {
+            background: #e74c3c;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 8px 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .quiz-close-btn:hover {
+            background: #c0392b;
+        }
+
+        /* Floating Texts */
+        .floating-text {
+            position: fixed;
+            pointer-events: none;
+            font-weight: 700;
+            font-size: 1.1rem;
+            z-index: 40;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), 0 0 2px #fff;
+            animation: floatUpFade 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            transform: translate(-50%, -50%);
+            white-space: nowrap;
+        }
+
+        @keyframes floatUpFade {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            20% {
+                transform: translate(-50%, -80%) scale(1.1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -180%) scale(1);
+            }
+        }
+
+        /* Sound Toggle Button */
+        #sound-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            z-index: 15;
+        }
+
+        /* Responsive Adjustments for Mobile */
+        @media (max-width: 768px) {
+            #stats-panel {
+                top: 10px;
+                left: 10px;
+                width: 175px;
+                padding: 12px;
+                gap: 8px;
+            }
+            .game-title { font-size: 0.95rem; }
+            .stat-box { padding: 6px 10px; gap: 8px; }
+            .stat-icon { width: 28px; height: 28px; font-size: 0.95rem; }
+            .stat-value { font-size: 0.95rem; }
+            #sell-btn { padding: 8px; font-size: 0.82rem; }
+
+            #shop-panel {
+                top: 10px;
+                right: 10px;
+                width: 195px;
+                padding: 10px;
+                gap: 8px;
+            }
+            .tab-btn { font-size: 0.75rem; padding: 6px 4px; }
+            .shop-item { padding: 7px 9px; }
+            .item-title { font-size: 0.8rem; }
+            .item-sub, .item-sell, .item-time { font-size: 0.68rem; }
+
+            #bottom-guide {
+                font-size: 0.72rem;
+                padding: 6px 14px;
+                bottom: 12px;
+                max-width: 90vw;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            #sound-toggle {
+                bottom: 52px;
+                right: 12px;
+                width: 38px;
+                height: 38px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Robot 2D Floating Status Badge -->
+    <div id="robot-badge">QUIZ 🤖</div>
+
+    <!-- Top-Left Stats Panel -->
+    <div id="stats-panel" class="glass-panel">
+        <div class="game-title">🌱 Mini Farm Island</div>
+        
+        <div class="stat-box">
+            <div class="stat-icon icon-coin">🪙</div>
+            <div class="stat-info">
+                <span class="stat-label">เงินออม</span>
+                <span class="stat-value" id="coin-display">100 เหรียญ</span>
+            </div>
+        </div>
+
+        <div class="stat-box">
+            <div class="stat-icon icon-box">📦</div>
+            <div class="stat-info">
+                <span class="stat-label">ผลผลิตในคลัง</span>
+                <span class="stat-value" id="inv-display">0 ชิ้น</span>
+            </div>
+        </div>
+
+        <button id="sell-btn" disabled>ขายผลผลิตทั้งหมด</button>
+        <div class="sell-hint" id="sell-hint">ปลูกพืชเพื่อเก็บเกี่ยว</div>
+    </div>
+
+    <!-- Top-Right Shop Panel -->
+    <div id="shop-panel" class="glass-panel">
+        <div class="shop-tabs">
+            <button class="tab-btn active" data-tab="seeds">🛒 เมล็ดพันธุ์</button>
+            <button class="tab-btn" data-tab="build">🔨 ก่อสร้าง</button>
+        </div>
+        <div class="shop-content" id="shop-content">
+            <!-- Populated dynamically via JS -->
+        </div>
+    </div>
+
+    <!-- Bottom Instruction Guide -->
+    <div id="bottom-guide">
+        เลือกเมล็ด → คลิกแปลงดิน <span>ปลูก</span> → รอต้นโตเต็มที่ → คลิก <span>เก็บเกี่ยว</span>
+    </div>
+
+    <!-- Sound Toggle -->
+    <button id="sound-toggle" class="glass-panel" title="เปิด/ปิดเสียง">🔊</button>
+
+    <!-- Robot Math Quiz Modal -->
+    <div id="quiz-modal-overlay">
+        <div class="quiz-card">
+            <div class="quiz-header">🤖 หุ่นยนต์ช่วยรดน้ำ</div>
+            <div class="quiz-sub">ตอบคำถามถูกรับบัฟโตไว 1.5x เป็นเวลา 10 วิ!</div>
+            <div class="quiz-question-box" id="quiz-question">12 + 8 = ?</div>
+            <div class="quiz-options" id="quiz-options">
+                <!-- 4 Option buttons -->
+            </div>
+            <button class="quiz-close-btn" id="quiz-close-btn">ปิดหน้าต่าง</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ============================================================================
+         * 1. GAME STATE & CONFIGURATION
+         * ============================================================================
+         */
+        const CROPS_CONFIG = {
+            tomato: {
+                id: 'tomato',
+                name: 'มะเขือเทศ',
+                emoji: '🍅',
+                cost: 10,
+                sell: 25,
+                growTime: 5,
+                color: 0xe74c3c
+            },
+            carrot: {
+                id: 'carrot',
+                name: 'แครอท',
+                emoji: '🥕',
+                cost: 20,
+                sell: 60,
+                growTime: 8,
+                color: 0xe67e22
+            },
+            cabbage: {
+                id: 'cabbage',
+                name: 'กะหล่ำปลี',
+                emoji: '🥬',
+                cost: 50,
+                sell: 200,
+                growTime: 12,
+                color: 0x82e0aa
+            }
+        };
+
+        const GAME_STATE = {
+            coins: 100,
+            inventory: [], // Array of crop ids
+            selectedSeed: 'tomato',
+            activeTab: 'seeds',
+            unlockedPlots: 6,
+            maxPlots: 12,
+            plotCost: 150,
+            houseLevel: 1, // 1, 2, 3
+            houseUpgradeCosts: { 2: 300, 3: 800 },
+            robotState: 'idle', // 'idle', 'buff', 'broken'
+            robotTimer: 0,
+            soundEnabled: true,
+            currentQuizAnswer: null
+        };
+
+        /**
+         * ============================================================================
+         * 2. SOUND ENGINE (Tone.js Procedural Synthesizers)
+         * ============================================================================
+         */
+        class SoundManager {
+            constructor() {
+                this.initialized = false;
+                this.synth = null;
+                this.polySynth = null;
+                this.noiseSynth = null;
+            }
+
+            async init() {
+                if (this.initialized) return;
+                try {
+                    await Tone.start();
+                    this.synth = new Tone.Synth({
+                        oscillator: { type: 'triangle' },
+                        envelope: { attack: 0.01, decay: 0.15, sustain: 0.05, release: 0.2 }
+                    }).toDestination();
+                    this.synth.volume.value = -6;
+
+                    this.polySynth = new Tone.PolySynth(Tone.Synth, {
+                        oscillator: { type: 'sine' },
+                        envelope: { attack: 0.02, decay: 0.2, sustain: 0.1, release: 0.4 }
+                    }).toDestination();
+                    this.polySynth.volume.value = -6;
+
+                    this.initialized = true;
+                } catch (e) {
+                    console.warn('Audio init skipped:', e);
+                }
+            }
+
+            playPop() {
+                if (!GAME_STATE.soundEnabled) return;
+                this.init();
+                if (!this.synth) return;
+                const now = Tone.now();
+                this.synth.triggerAttackRelease('C5', '16n', now);
+                this.synth.triggerAttackRelease('G5', '16n', now + 0.06);
+            }
+
+            playHarvest() {
+                if (!GAME_STATE.soundEnabled) return;
+                this.init();
+                if (!this.polySynth) return;
+                const now = Tone.now();
+                this.polySynth.triggerAttackRelease(['E5', 'G5', 'C6'], '16n', now);
+            }
+
+            playCoin() {
+                if (!GAME_STATE.soundEnabled) return;
+                this.init();
+                if (!this.synth) return;
+                const now = Tone.now();
+                this.synth.triggerAttackRelease('B5', '16n', now);
+                this.synth.triggerAttackRelease('E6', '8n', now + 0.08);
+            }
+
+            playError() {
+                if (!GAME_STATE.soundEnabled) return;
+                this.init();
+                if (!this.synth) return;
+                const now = Tone.now();
+                this.synth.triggerAttackRelease('E3', '16n', now);
+                this.synth.triggerAttackRelease('C3', '8n', now + 0.12);
+            }
+
+            playSuccess() {
+                if (!GAME_STATE.soundEnabled) return;
+                this.init();
+                if (!this.polySynth) return;
+                const now = Tone.now();
+                this.polySynth.triggerAttackRelease('C5', '16n', now);
+                this.polySynth.triggerAttackRelease('E5', '16n', now + 0.08);
+                this.polySynth.triggerAttackRelease('G5', '16n', now + 0.16);
+                this.polySynth.triggerAttackRelease('C6', '8n', now + 0.24);
+            }
+
+            playBuild() {
+                if (!GAME_STATE.soundEnabled) return;
+                this.init();
+                if (!this.polySynth) return;
+                const now = Tone.now();
+                this.polySynth.triggerAttackRelease(['G4', 'B4', 'D5', 'G5'], '8n', now);
+            }
+        }
+
+        const sfx = new SoundManager();
+
+        /**
+         * ============================================================================
+         * 3. THREE.JS SCENE SETUP & ENVIRONMENT
+         * ============================================================================
+         */
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x7ac5f4, 0.012);
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 200);
+        camera.position.set(0, 18, 24);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // OrbitControls with polar angle limit so camera never goes underwater
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.maxPolarAngle = Math.PI / 2 - 0.12; // Prevent going under ground
+        controls.minPolarAngle = 0.25;
+        controls.minDistance = 12;
+        controls.maxDistance = 42;
+        controls.target.set(0, 1, 0);
+
+        // Lighting
+        const ambientLight = new THREE.HemisphereLight(0xffffff, 0x87ceeb, 0.75);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfffbe8, 0.95);
+        dirLight.position.set(15, 28, 18);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 5;
+        dirLight.shadow.camera.far = 65;
+        const d = 18;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        dirLight.shadow.bias = -0.0005;
+        scene.add(dirLight);
+
+        // --- OCEAN (Animated Low-Poly Waves) ---
+        const oceanGeo = new THREE.PlaneGeometry(180, 180, 48, 48);
+        oceanGeo.rotateX(-Math.PI / 2);
+        const oceanMat = new THREE.MeshStandardMaterial({
+            color: 0x5dade2,
+            roughness: 0.35,
+            metalness: 0.1,
+            flatShading: true
+        });
+        const oceanMesh = new THREE.Mesh(oceanGeo, oceanMat);
+        oceanMesh.position.y = -0.35;
+        oceanMesh.receiveShadow = true;
+        scene.add(oceanMesh);
+
+        // Store initial vertices for wave animation
+        const oceanPosAttr = oceanGeo.attributes.position;
+        const oceanInitialY = new Float32Array(oceanPosAttr.count);
+        for (let i = 0; i < oceanPosAttr.count; i++) {
+            oceanInitialY[i] = oceanPosAttr.getY(i);
+        }
+
+        // --- FLOATING ISLAND ---
+        const islandGroup = new THREE.Group();
+        scene.add(islandGroup);
+
+        // Sand Base
+        const sandGeo = new THREE.CylinderGeometry(12.2, 11.2, 1.2, 36);
+        const sandMat = new THREE.MeshStandardMaterial({
+            color: 0xf7dc6f,
+            roughness: 0.85,
+            flatShading: true
+        });
+        const sandMesh = new THREE.Mesh(sandGeo, sandMat);
+        sandMesh.position.y = -0.1;
+        sandMesh.receiveShadow = true;
+        islandGroup.add(sandMesh);
+
+        // Green Grass Top
+        const grassGeo = new THREE.CylinderGeometry(11.3, 11.7, 0.7, 36);
+        const grassMat = new THREE.MeshStandardMaterial({
+            color: 0x82e05a,
+            roughness: 0.8,
+            flatShading: true
+        });
+        const grassMesh = new THREE.Mesh(grassGeo, grassMat);
+        grassMesh.position.y = 0.55;
+        grassMesh.receiveShadow = true;
+        islandGroup.add(grassMesh);
+
+        // --- DECORATIVE ROCKS ---
+        function createRock(x, z, scale) {
+            const rockGeo = new THREE.DodecahedronGeometry(0.6 * scale, 0);
+            const rockMat = new THREE.MeshStandardMaterial({
+                color: 0x95a5a6,
+                roughness: 0.9,
+                flatShading: true
+            });
+            const rock = new THREE.Mesh(rockGeo, rockMat);
+            rock.position.set(x, 0.9 + 0.2 * scale, z);
+            rock.rotation.set(Math.random(), Math.random(), Math.random());
+            rock.castShadow = true;
+            rock.receiveShadow = true;
+            islandGroup.add(rock);
+        }
+        createRock(-5.2, 3.2, 0.8);
+        createRock(5.5, 4.8, 1.25);
+        createRock(5.8, -3.5, 0.75);
+
+        // --- LOW-POLY TREES (With Gentle Wind Sway) ---
+        const trees = [];
+        function createTree(x, z, scale = 1) {
+            const treeGroup = new THREE.Group();
+            treeGroup.position.set(x, 0.9, z);
+
+            const trunkGeo = new THREE.CylinderGeometry(0.32 * scale, 0.42 * scale, 1.3 * scale, 8);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8d5524, flatShading: true });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 0.65 * scale;
+            trunk.castShadow = true;
+            trunk.receiveShadow = true;
+            treeGroup.add(trunk);
+
+            const leavesGeo = new THREE.ConeGeometry(1.5 * scale, 3.6 * scale, 7);
+            const leavesMat = new THREE.MeshStandardMaterial({ color: 0x27ae60, flatShading: true });
+            const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+            leaves.position.y = 2.8 * scale;
+            leaves.castShadow = true;
+            leaves.receiveShadow = true;
+            treeGroup.add(leaves);
+
+            islandGroup.add(treeGroup);
+            trees.push({ group: treeGroup, phase: Math.random() * Math.PI * 2 });
+        }
+
+        createTree(-7.2, -2.5, 1.05);
+        createTree(-3.8, -5.8, 0.95);
+        createTree(7.4, -2.8, 1.15);
+        createTree(8.2, 1.8, 1.0);
+
+        // --- WELL (Left of farm plots) ---
+        const wellGroup = new THREE.Group();
+        wellGroup.position.set(-4.2, 0.9, -2.8);
+        islandGroup.add(wellGroup);
+
+        const wellBaseGeo = new THREE.CylinderGeometry(1.05, 1.15, 0.85, 12);
+        const wellStoneMat = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, flatShading: true });
+        const wellBase = new THREE.Mesh(wellBaseGeo, wellStoneMat);
+        wellBase.position.y = 0.42;
+        wellBase.castShadow = true;
+        wellBase.receiveShadow = true;
+        wellGroup.add(wellBase);
+
+        const wellWaterGeo = new THREE.CylinderGeometry(0.85, 0.85, 0.88, 12);
+        const wellWaterMat = new THREE.MeshStandardMaterial({ color: 0x3498db, roughness: 0.2 });
+        const wellWater = new THREE.Mesh(wellWaterGeo, wellWaterMat);
+        wellWater.position.y = 0.42;
+        wellGroup.add(wellWater);
+
+        // Pillars
+        const pillarGeo = new THREE.BoxGeometry(0.14, 1.4, 0.14);
+        const woodMat = new THREE.MeshStandardMaterial({ color: 0x7e5109, flatShading: true });
+        const p1 = new THREE.Mesh(pillarGeo, woodMat);
+        p1.position.set(-0.8, 1.4, 0);
+        p1.castShadow = true;
+        const p2 = new THREE.Mesh(pillarGeo, woodMat);
+        p2.position.set(0.8, 1.4, 0);
+        p2.castShadow = true;
+        wellGroup.add(p1, p2);
+
+        // Red Roof
+        const wellRoofGeo = new THREE.ConeGeometry(1.3, 0.9, 4);
+        const wellRoofMat = new THREE.MeshStandardMaterial({ color: 0xe74c3c, flatShading: true });
+        const wellRoof = new THREE.Mesh(wellRoofGeo, wellRoofMat);
+        wellRoof.position.y = 2.4;
+        wellRoof.rotation.y = Math.PI / 4;
+        wellRoof.castShadow = true;
+        wellGroup.add(wellRoof);
+
+        // --- UPGRADEABLE HOUSE & CHIMNEY SMOKE ---
+        const houseGroup = new THREE.Group();
+        houseGroup.position.set(0, 0.9, -5.8);
+        islandGroup.add(houseGroup);
+
+        let chimneyWorldPos = new THREE.Vector3(0.9, 5.2, -5.8);
+
+        function buildHouseMesh(level) {
+            while (houseGroup.children.length > 0) {
+                houseGroup.remove(houseGroup.children[0]);
+            }
+
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0xebe5dc, flatShading: true });
+            const doorMat = new THREE.MeshStandardMaterial({ color: 0x8d5524, flatShading: true });
+            const winMat = new THREE.MeshStandardMaterial({ color: 0x85c1e9, flatShading: true });
+            const chimneyMat = new THREE.MeshStandardMaterial({ color: 0x95a5a6, flatShading: true });
+
+            if (level === 1) {
+                // Level 1: Cozy Cottage with Orange Roof
+                const body = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.4, 2.8), wallMat);
+                body.position.y = 1.2;
+                body.castShadow = true;
+                body.receiveShadow = true;
+                houseGroup.add(body);
+
+                const roofMat = new THREE.MeshStandardMaterial({ color: 0xe67e22, flatShading: true });
+                const roof = new THREE.Mesh(new THREE.ConeGeometry(2.6, 1.8, 4), roofMat);
+                roof.position.y = 3.3;
+                roof.rotation.y = Math.PI / 4;
+                roof.castShadow = true;
+                houseGroup.add(roof);
+
+                const door = new THREE.Mesh(new THREE.BoxGeometry(0.65, 1.2, 0.1), doorMat);
+                door.position.set(-0.3, 0.6, 1.41);
+                houseGroup.add(door);
+
+                const win = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.65, 0.65), winMat);
+                win.position.set(1.61, 1.35, 0);
+                houseGroup.add(win);
+
+                const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.2, 0.45), chimneyMat);
+                chimney.position.set(-0.8, 3.6, -0.3);
+                chimney.castShadow = true;
+                houseGroup.add(chimney);
+
+                chimneyWorldPos.set(-0.8, 5.1, -6.1);
+            } else if (level === 2) {
+                // Level 2: Two-Story Blue Roof House
+                const body = new THREE.Mesh(new THREE.BoxGeometry(3.5, 3.6, 3.0), wallMat);
+                body.position.y = 1.8;
+                body.castShadow = true;
+                body.receiveShadow = true;
+                houseGroup.add(body);
+
+                const roofMat = new THREE.MeshStandardMaterial({ color: 0x2980b9, flatShading: true });
+                const roof = new THREE.Mesh(new THREE.ConeGeometry(2.9, 2.0, 4), roofMat);
+                roof.position.y = 4.6;
+                roof.rotation.y = Math.PI / 4;
+                roof.castShadow = true;
+                houseGroup.add(roof);
+
+                const door = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.25, 0.1), doorMat);
+                door.position.set(-0.35, 0.62, 1.51);
+                houseGroup.add(door);
+
+                // Side Windows (1st & 2nd floor)
+                const win1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.65, 0.65), winMat);
+                win1.position.set(1.76, 1.2, 0.2);
+                const win2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.65, 0.65), winMat);
+                win2.position.set(1.76, 2.7, 0.2);
+                const winFront = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.65, 0.1), winMat);
+                winFront.position.set(0.6, 2.7, 1.51);
+                houseGroup.add(win1, win2, winFront);
+
+                const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.4, 0.5), chimneyMat);
+                chimney.position.set(-0.9, 4.9, -0.3);
+                chimney.castShadow = true;
+                houseGroup.add(chimney);
+
+                chimneyWorldPos.set(-0.9, 6.5, -6.1);
+            } else {
+                // Level 3: Grand Farm Villa with Side Wing & Porch
+                const mainBody = new THREE.Mesh(new THREE.BoxGeometry(3.8, 3.8, 3.2), wallMat);
+                mainBody.position.set(-0.4, 1.9, 0);
+                mainBody.castShadow = true;
+                mainBody.receiveShadow = true;
+                houseGroup.add(mainBody);
+
+                const wingBody = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.5, 2.6), wallMat);
+                wingBody.position.set(2.3, 1.25, 0.2);
+                wingBody.castShadow = true;
+                wingBody.receiveShadow = true;
+                houseGroup.add(wingBody);
+
+                const roofMat = new THREE.MeshStandardMaterial({ color: 0x8e44ad, flatShading: true });
+                const mainRoof = new THREE.Mesh(new THREE.ConeGeometry(3.1, 2.2, 4), roofMat);
+                mainRoof.position.set(-0.4, 4.9, 0);
+                mainRoof.rotation.y = Math.PI / 4;
+                mainRoof.castShadow = true;
+                houseGroup.add(mainRoof);
+
+                const wingRoof = new THREE.Mesh(new THREE.ConeGeometry(2.0, 1.4, 4), roofMat);
+                wingRoof.position.set(2.3, 3.2, 0.2);
+                wingRoof.rotation.y = Math.PI / 4;
+                wingRoof.castShadow = true;
+                houseGroup.add(wingRoof);
+
+                const door = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.35, 0.12), doorMat);
+                door.position.set(-0.4, 0.67, 1.61);
+                houseGroup.add(door);
+
+                const winF1 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.12), winMat);
+                winF1.position.set(-1.3, 2.8, 1.61);
+                const winF2 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.12), winMat);
+                winF2.position.set(0.5, 2.8, 1.61);
+                const winWing = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.12), winMat);
+                winWing.position.set(2.3, 1.4, 1.51);
+                houseGroup.add(winF1, winF2, winWing);
+
+                const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.5, 0.55), chimneyMat);
+                chimney.position.set(-1.3, 5.2, -0.3);
+                chimney.castShadow = true;
+                houseGroup.add(chimney);
+
+                chimneyWorldPos.set(-1.3, 6.8, -6.1);
+            }
+        }
+        buildHouseMesh(1);
+
+        // Chimney Smoke Particles
+        const smokeParticles = [];
+        const smokeGeo = new THREE.DodecahedronGeometry(0.25, 1);
+        const smokeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 });
+
+        function spawnSmoke() {
+            const puff = new THREE.Mesh(smokeGeo, smokeMat.clone());
+            puff.position.copy(chimneyWorldPos);
+            puff.position.x += (Math.random() - 0.5) * 0.2;
+            puff.position.z += (Math.random() - 0.5) * 0.2;
+            puff.scale.setScalar(0.5 + Math.random() * 0.4);
+            scene.add(puff);
+            smokeParticles.push({
+                mesh: puff,
+                life: 0,
+                maxLife: 2.2 + Math.random() * 0.8,
+                vx: (Math.random() - 0.3) * 0.35,
+                vy: 1.1 + Math.random() * 0.4
+            });
+        }
+
+        // --- ROBOT HELPER (Left of Farm Plots) ---
+        const robotGroup = new THREE.Group();
+        const robotBasePos = new THREE.Vector3(-4.6, 0.9, -0.3);
+        robotGroup.position.copy(robotBasePos);
+        robotGroup.rotation.y = 0.5;
+        islandGroup.add(robotGroup);
+
+        // Robot Feet/Base
+        const rBaseMat = new THREE.MeshStandardMaterial({ color: 0x2980b9, flatShading: true });
+        const rBodyMat = new THREE.MeshStandardMaterial({ color: 0xbdc3c7, flatShading: true });
+        const rEyeMat = new THREE.MeshStandardMaterial({ color: 0xf1c40f, emissive: 0xf39c12, emissiveIntensity: 0.5 });
+
+        const rFoot = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.35, 0.95), rBaseMat);
+        rFoot.position.y = 0.175;
+        rFoot.castShadow = true;
+        robotGroup.add(rFoot);
+
+        const rTorso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.75), rBodyMat);
+        rTorso.position.y = 0.85;
+        rTorso.castShadow = true;
+        robotGroup.add(rTorso);
+
+        const rHead = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.55, 0.65), rBodyMat);
+        rHead.position.y = 1.65;
+        rHead.castShadow = true;
+        robotGroup.add(rHead);
+
+        const rEyeL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.1), rEyeMat);
+        rEyeL.position.set(-0.16, 1.68, 0.33);
+        const rEyeR = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.1), rEyeMat);
+        rEyeR.position.set(0.16, 1.68, 0.33);
+        robotGroup.add(rEyeL, rEyeR);
+
+        const rAntStem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.35), rBodyMat);
+        rAntStem.position.y = 2.08;
+        const rAntBall = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), rBaseMat);
+        rAntBall.position.y = 2.28;
+        robotGroup.add(rAntStem, rAntBall);
+
+        // Invisible larger hitbox for easy clicking on robot
+        const robotHitbox = new THREE.Mesh(
+            new THREE.BoxGeometry(1.5, 2.8, 1.5),
+            new THREE.MeshBasicMaterial({ visible: false })
+        );
+        robotHitbox.position.y = 1.3;
+        robotHitbox.userData = { type: 'robot' };
+        robotGroup.add(robotHitbox);
+
+        // --- FARM PLOTS (Up to 12 plots in 3 columns x 4 rows) ---
+        const plots = [];
+        const plotInteractables = [];
+
+        function createCropMesh(cropId) {
+            const cropGroup = new THREE.Group();
+            if (cropId === 'tomato') {
+                // Red round sphere + small green stem
+                const fruit = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.38, 12, 10),
+                    new THREE.MeshStandardMaterial({ color: 0xe74c3c, roughness: 0.4, flatShading: true })
+                );
+                fruit.position.y = 0.35;
+                fruit.castShadow = true;
+
+                const stem = new THREE.Mesh(
+                    new THREE.ConeGeometry(0.18, 0.18, 5),
+                    new THREE.MeshStandardMaterial({ color: 0x27ae60, flatShading: true })
+                );
+                stem.position.y = 0.72;
+                cropGroup.add(fruit, stem);
+            } else if (cropId === 'carrot') {
+                // Orange inverted cone + green leafy top
+                const root = new THREE.Mesh(
+                    new THREE.ConeGeometry(0.28, 0.85, 8),
+                    new THREE.MeshStandardMaterial({ color: 0xe67e22, flatShading: true })
+                );
+                root.rotation.x = Math.PI;
+                root.position.y = 0.42;
+                root.castShadow = true;
+
+                const leaves = new THREE.Mesh(
+                    new THREE.ConeGeometry(0.24, 0.4, 6),
+                    new THREE.MeshStandardMaterial({ color: 0x2ecc71, flatShading: true })
+                );
+                leaves.position.y = 0.95;
+                cropGroup.add(root, leaves);
+            } else if (cropId === 'cabbage') {
+                // Light green polyhedral sphere
+                const head = new THREE.Mesh(
+                    new THREE.IcosahedronGeometry(0.45, 0),
+                    new THREE.MeshStandardMaterial({ color: 0x82e0aa, roughness: 0.6, flatShading: true })
+                );
+                head.position.y = 0.42;
+                head.castShadow = true;
+                cropGroup.add(head);
+            }
+            return cropGroup;
+        }
+
+        function create3DProgressBar() {
+            const barGroup = new THREE.Group();
+            barGroup.position.y = 1.45;
+
+            // Dark background frame
+            const bgMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(1.5, 0.26),
+                new THREE.MeshBasicMaterial({ color: 0x2c3e50, side: THREE.DoubleSide })
+            );
+            barGroup.add(bgMesh);
+
+            // Green fill bar
+            const fillGeo = new THREE.PlaneGeometry(1.4, 0.18);
+            // Shift pivot to left edge so scaling X grows from left to right
+            fillGeo.translate(0.7, 0, 0);
+            const fillMesh = new THREE.Mesh(
+                fillGeo,
+                new THREE.MeshBasicMaterial({ color: 0x2ecc71, side: THREE.DoubleSide })
+            );
+            fillMesh.position.set(-0.7, 0, 0.01);
+            barGroup.add(fillMesh);
+
+            barGroup.visible = false;
+            return { group: barGroup, fill: fillMesh };
+        }
+
+        function initPlots() {
+            const cols = 3;
+            const rows = 4;
+            const spacingX = 2.65;
+            const spacingZ = 2.45;
+            const startX = -((cols - 1) * spacingX) / 2;
+            const startZ = -1.8;
+
+            for (let i = 0; i < GAME_STATE.maxPlots; i++) {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                const x = startX + col * spacingX;
+                const z = startZ + row * spacingZ;
+
+                const plotGroup = new THREE.Group();
+                plotGroup.position.set(x, 0.92, z);
+
+                // Wooden Border Frame
+                const borderMesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(2.35, 0.18, 2.15),
+                    new THREE.MeshStandardMaterial({ color: 0x8d5524, flatShading: true })
+                );
+                borderMesh.receiveShadow = true;
+                borderMesh.castShadow = true;
+                plotGroup.add(borderMesh);
+
+                // Soil Inner Bed
+                const soilMesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(2.1, 0.21, 1.9),
+                    new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.95, flatShading: true })
+                );
+                soilMesh.receiveShadow = true;
+                soilMesh.userData = { type: 'plot', index: i };
+                plotGroup.add(soilMesh);
+
+                // Tiny Center Sprout Dot (Empty state indicator like screenshot)
+                const dotMesh = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.08, 0.08, 0.23, 8),
+                    new THREE.MeshBasicMaterial({ color: 0x82e0aa })
+                );
+                plotGroup.add(dotMesh);
+
+                // 3D Progress Bar
+                const progressBar = create3DProgressBar();
+                plotGroup.add(progressBar.group);
+
+                plotGroup.visible = i < GAME_STATE.unlockedPlots;
+                islandGroup.add(plotGroup);
+                plotInteractables.push(soilMesh);
+
+                plots.push({
+                    index: i,
+                    group: plotGroup,
+                    soilMesh: soilMesh,
+                    dotMesh: dotMesh,
+                    progressBar: progressBar,
+                    cropId: null,
+                    cropMesh: null,
+                    elapsed: 0,
+                    duration: 0,
+                    isReady: false
+                });
+            }
+        }
+        initPlots();
+
+        // --- PARTICLE EFFECTS (Water Droplets & Sparks) ---
+        const effectParticles = [];
+        const waterDropGeo = new THREE.SphereGeometry(0.08, 6, 6);
+        const waterDropMat = new THREE.MeshBasicMaterial({ color: 0x3498db });
+        const sparkGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+        const sparkMat = new THREE.MeshBasicMaterial({ color: 0xf39c12 });
+
+        function spawnWaterDroplet() {
+            // Spawn over random unlocked plot
+            const idx = Math.floor(Math.random() * GAME_STATE.unlockedPlots);
+            const targetPlot = plots[idx].group.position;
+            const drop = new THREE.Mesh(waterDropGeo, waterDropMat);
+            drop.position.set(
+                targetPlot.x + (Math.random() - 0.5) * 1.8,
+                3.5 + Math.random() * 1.2,
+                targetPlot.z + (Math.random() - 0.5) * 1.6
+            );
+            scene.add(drop);
+            effectParticles.push({
+                mesh: drop,
+                vx: 0,
+                vy: -4.5,
+                vz: 0,
+                gravity: -9.8,
+                type: 'water',
+                life: 0,
+                maxLife: 0.7
+            });
+        }
+
+        function spawnRobotSpark() {
+            const spark = new THREE.Mesh(sparkGeo, sparkMat);
+            spark.position.copy(robotBasePos);
+            spark.position.y += 1.2 + Math.random() * 0.6;
+            scene.add(spark);
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1.5 + Math.random() * 2.5;
+            effectParticles.push({
+                mesh: spark,
+                vx: Math.cos(angle) * speed,
+                vy: 2.5 + Math.random() * 2.5,
+                vz: Math.sin(angle) * speed,
+                gravity: -14.0,
+                type: 'spark',
+                life: 0,
+                maxLife: 0.9
+            });
+        }
+
+        /**
+         * ============================================================================
+         * 4. UI UPDATES & FLOATING TEXTS
+         * ============================================================================
+         */
+        function showFloatingText(text, screenX, screenY, color = '#ffffff') {
+            const el = document.createElement('div');
+            el.className = 'floating-text';
+            el.textContent = text;
+            el.style.left = `${screenX}px`;
+            el.style.top = `${screenY}px`;
+            el.style.color = color;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1200);
+        }
+
+        function getScreenCoords(worldVec3) {
+            const v = worldVec3.clone().project(camera);
+            return {
+                x: (v.x * 0.5 + 0.5) * window.innerWidth,
+                y: (-(v.y * 0.5) + 0.5) * window.innerHeight
+            };
+        }
+
+        function updateStatsUI() {
+            document.getElementById('coin-display').textContent = `${GAME_STATE.coins} เหรียญ`;
+            const count = GAME_STATE.inventory.length;
+            document.getElementById('inv-display').textContent = `${count} ชิ้น`;
+
+            const sellBtn = document.getElementById('sell-btn');
+            const sellHint = document.getElementById('sell-hint');
+
+            if (count > 0) {
+                const totalVal = GAME_STATE.inventory.reduce((sum, id) => sum + CROPS_CONFIG[id].sell, 0);
+                sellBtn.disabled = false;
+                sellBtn.classList.add('active');
+                sellBtn.textContent = `ขายผลผลิตทั้งหมด (+${totalVal})`;
+                sellHint.textContent = 'คลิกเพื่อขายทั้งหมด';
+            } else {
+                sellBtn.disabled = true;
+                sellBtn.classList.remove('active');
+                sellBtn.textContent = 'ขายผลผลิตทั้งหมด';
+                sellHint.textContent = 'ปลูกพืชเพื่อเก็บเกี่ยว';
+            }
+        }
+
+        function renderShopUI() {
+            const shopContent = document.getElementById('shop-content');
+            shopContent.innerHTML = '';
+
+            if (GAME_STATE.activeTab === 'seeds') {
+                Object.values(CROPS_CONFIG).forEach(crop => {
+                    const isSelected = GAME_STATE.selectedSeed === crop.id;
+                    const item = document.createElement('div');
+                    item.className = `shop-item ${isSelected ? 'selected' : ''}`;
+                    item.innerHTML = `
+                        <div class="item-left">
+                            <div class="item-title">${crop.name} ${crop.emoji}</div>
+                            <div class="item-sub">ปลูก: -${crop.cost} 🪙</div>
+                        </div>
+                        <div class="item-right">
+                            <div class="item-sell">ขาย: +${crop.sell} 🪙</div>
+                            <div class="item-time">${crop.growTime} วิ</div>
+                        </div>
+                    `;
+                    item.addEventListener('click', () => {
+                        sfx.playPop();
+                        GAME_STATE.selectedSeed = crop.id;
+                        renderShopUI();
+                    });
+                    shopContent.appendChild(item);
+                });
+            } else {
+                // Build Tab: 1. Expand Plots
+                const canExpand = GAME_STATE.unlockedPlots < GAME_STATE.maxPlots;
+                const expandItem = document.createElement('div');
+                expandItem.className = `shop-item ${!canExpand ? 'disabled' : ''}`;
+                expandItem.innerHTML = `
+                    <div class="item-left">
+                        <div class="item-title">ขยายแปลงผัก 🟫</div>
+                        <div class="item-sub" style="color:#7f8c8d;">(${GAME_STATE.unlockedPlots}/${GAME_STATE.maxPlots} ช่อง)</div>
+                    </div>
+                    <div class="item-right">
+                        <div class="item-sub" style="font-weight:700; font-size:0.85rem;">
+                            ${canExpand ? `-${GAME_STATE.plotCost} 🪙` : 'เต็มแล้ว'}
+                        </div>
+                    </div>
+                `;
+                if (canExpand) {
+                    expandItem.addEventListener('click', (e) => {
+                        if (GAME_STATE.coins >= GAME_STATE.plotCost) {
+                            GAME_STATE.coins -= GAME_STATE.plotCost;
+                            const newIdx = GAME_STATE.unlockedPlots;
+                            plots[newIdx].group.visible = true;
+                            GAME_STATE.unlockedPlots++;
+                            sfx.playBuild();
+                            const pos = getScreenCoords(plots[newIdx].group.position);
+                            showFloatingText(`ปลดล็อคแปลงที่ ${GAME_STATE.unlockedPlots}!`, pos.x, pos.y - 20, '#2ecc71');
+                            updateStatsUI();
+                            renderShopUI();
+                        } else {
+                            sfx.playError();
+                            showFloatingText('เงินไม่พอ!', e.clientX, e.clientY, '#e74c3c');
+                        }
+                    });
+                }
+                shopContent.appendChild(expandItem);
+
+                // Build Tab: 2. Upgrade House
+                const canUpgradeHouse = GAME_STATE.houseLevel < 3;
+                const nextLevel = GAME_STATE.houseLevel + 1;
+                const upgradeCost = GAME_STATE.houseUpgradeCosts[nextLevel];
+
+                const houseItem = document.createElement('div');
+                houseItem.className = `shop-item ${!canUpgradeHouse ? 'disabled' : ''}`;
+                houseItem.innerHTML = `
+                    <div class="item-left">
+                        <div class="item-title">ต่อเติมบ้าน 🏠</div>
+                        <div class="item-sub" style="color:#7f8c8d;">
+                            ${canUpgradeHouse ? `ระดับ ${GAME_STATE.houseLevel} -> ${nextLevel}` : 'ระดับสูงสุด (3)'}
+                        </div>
+                    </div>
+                    <div class="item-right">
+                        <div class="item-sub" style="font-weight:700; font-size:0.85rem;">
+                            ${canUpgradeHouse ? `-${upgradeCost} 🪙` : 'สูงสุดแล้ว'}
+                        </div>
+                    </div>
+                `;
+                if (canUpgradeHouse) {
+                    houseItem.addEventListener('click', (e) => {
+                        if (GAME_STATE.coins >= upgradeCost) {
+                            GAME_STATE.coins -= upgradeCost;
+                            GAME_STATE.houseLevel = nextLevel;
+                            buildHouseMesh(GAME_STATE.houseLevel);
+                            sfx.playBuild();
+                            const pos = getScreenCoords(houseGroup.position);
+                            showFloatingText(`อัปเกรดบ้านระดับ ${GAME_STATE.houseLevel}!`, pos.x, pos.y - 60, '#3498db');
+                            updateStatsUI();
+                            renderShopUI();
+                        } else {
+                            sfx.playError();
+                            showFloatingText('เงินไม่พอ!', e.clientX, e.clientY, '#e74c3c');
+                        }
+                    });
+                }
+                shopContent.appendChild(houseItem);
+            }
+        }
+
+        // Tab Switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                sfx.playPop();
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                GAME_STATE.activeTab = btn.dataset.tab;
+                renderShopUI();
+            });
+        });
+
+        // Sell All Harvested Crops
+        document.getElementById('sell-btn').addEventListener('click', (e) => {
+            if (GAME_STATE.inventory.length === 0) return;
+            const totalEarned = GAME_STATE.inventory.reduce((sum, id) => sum + CROPS_CONFIG[id].sell, 0);
+            GAME_STATE.coins += totalEarned;
+            GAME_STATE.inventory = [];
+            sfx.playCoin();
+            showFloatingText(`+${totalEarned} 🪙`, e.clientX, e.clientY - 10, '#f1c40f');
+            updateStatsUI();
+        });
+
+        // Sound Toggle
+        document.getElementById('sound-toggle').addEventListener('click', (e) => {
+            GAME_STATE.soundEnabled = !GAME_STATE.soundEnabled;
+            e.currentTarget.textContent = GAME_STATE.soundEnabled ? '🔊' : '🔇';
+            if (GAME_STATE.soundEnabled) sfx.playPop();
+        });
+
+        /**
+         * ============================================================================
+         * 5. ROBOT MATH QUIZ MINI-GAME
+         * ============================================================================
+         */
+        const quizOverlay = document.getElementById('quiz-modal-overlay');
+        const robotBadge = document.getElementById('robot-badge');
+
+        function openRobotQuiz() {
+            if (GAME_STATE.robotState === 'broken') {
+                sfx.playError();
+                const pos = getScreenCoords(robotBasePos);
+                showFloatingText('หุ่นยนต์กำลังซ่อมแซม!', pos.x, pos.y - 40, '#e74c3c');
+                return;
+            }
+            if (GAME_STATE.robotState === 'buff') {
+                sfx.playPop();
+                const pos = getScreenCoords(robotBasePos);
+                showFloatingText('กำลังรดน้ำเร่งโต 1.5x!', pos.x, pos.y - 40, '#3498db');
+                return;
+            }
+
+            sfx.playPop();
+
+            // Generate Random Math Question (+, -, *)
+            const ops = ['+', '-', '×'];
+            const op = ops[Math.floor(Math.random() * ops.length)];
+            let a, b, ans;
+
+            if (op === '+') {
+                a = Math.floor(Math.random() * 45) + 10;
+                b = Math.floor(Math.random() * 45) + 10;
+                ans = a + b;
+            } else if (op === '-') {
+                a = Math.floor(Math.random() * 50) + 25;
+                b = Math.floor(Math.random() * 24) + 5;
+                ans = a - b;
+            } else {
+                a = Math.floor(Math.random() * 11) + 2;
+                b = Math.floor(Math.random() * 9) + 2;
+                ans = a * b;
+            }
+
+            GAME_STATE.currentQuizAnswer = ans;
+            document.getElementById('quiz-question').textContent = `${a} ${op} ${b} = ?`;
+
+            // Generate 3 unique wrong options
+            const options = new Set([ans]);
+            while (options.size < 4) {
+                const offset = (Math.floor(Math.random() * 9) + 1) * (Math.random() < 0.5 ? 1 : -1);
+                const wrong = ans + offset;
+                if (wrong > 0 && wrong !== ans) options.add(wrong);
+            }
+
+            // Shuffle options
+            const shuffled = Array.from(options).sort(() => Math.random() - 0.5);
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+
+            shuffled.forEach(val => {
+                const btn = document.createElement('button');
+                btn.className = 'quiz-opt-btn';
+                btn.textContent = val;
+                btn.addEventListener('click', () => handleQuizAnswer(val));
+                optionsContainer.appendChild(btn);
+            });
+
+            quizOverlay.classList.add('show');
+        }
+
+        function handleQuizAnswer(selected) {
+            quizOverlay.classList.remove('show');
+            const pos = getScreenCoords(robotBasePos);
+
+            if (selected === GAME_STATE.currentQuizAnswer) {
+                // Correct -> Buff 10s
+                GAME_STATE.robotState = 'buff';
+                GAME_STATE.robotTimer = 10.0;
+                sfx.playSuccess();
+                showFloatingText('ตอบถูก! รดน้ำ 1.5x (10วิ) 💦', pos.x, pos.y - 50, '#2ecc71');
+            } else {
+                // Wrong -> Broken 10s
+                GAME_STATE.robotState = 'broken';
+                GAME_STATE.robotTimer = 10.0;
+                sfx.playError();
+                showFloatingText('ตอบผิด! หุ่นยนต์พัง 10 วิ 💥', pos.x, pos.y - 50, '#e74c3c');
+            }
+        }
+
+        document.getElementById('quiz-close-btn').addEventListener('click', () => {
+            sfx.playPop();
+            quizOverlay.classList.remove('show');
+        });
+
+        robotBadge.addEventListener('click', openRobotQuiz);
+
+        /**
+         * ============================================================================
+         * 6. 3D RAYCASTING INTERACTION (PLANT & HARVEST & ROBOT CLICK)
+         * ============================================================================
+         */
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        let pointerDownPos = { x: 0, y: 0 };
+
+        renderer.domElement.addEventListener('pointerdown', (e) => {
+            pointerDownPos = { x: e.clientX, y: e.clientY };
+        });
+
+        renderer.domElement.addEventListener('pointerup', (e) => {
+            // Ignore drag camera movements
+            const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+            if (dist > 6) return;
+
+            pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(pointer, camera);
+
+            // Check Robot Hitbox first
+            const robotHits = raycaster.intersectObject(robotHitbox);
+            if (robotHits.length > 0) {
+                openRobotQuiz();
+                return;
+            }
+
+            // Check Unlocked Plots
+            const visibleSoils = plots.filter(p => p.group.visible).map(p => p.soilMesh);
+            const plotHits = raycaster.intersectObjects(visibleSoils);
+
+            if (plotHits.length > 0) {
+                const plotIndex = plotHits[0].object.userData.index;
+                handlePlotClick(plotIndex, e.clientX, e.clientY);
+            }
+        });
+
+        function handlePlotClick(index, clientX, clientY) {
+            const plot = plots[index];
+
+            // Case 1: Empty Plot -> Plant Selected Seed
+            if (!plot.cropId) {
+                const seed = CROPS_CONFIG[GAME_STATE.selectedSeed];
+                if (GAME_STATE.coins >= seed.cost) {
+                    GAME_STATE.coins -= seed.cost;
+                    plot.cropId = seed.id;
+                    plot.elapsed = 0;
+                    plot.duration = seed.growTime;
+                    plot.isReady = false;
+
+                    // Hide empty dot, add small crop mesh
+                    plot.dotMesh.visible = false;
+                    plot.cropMesh = createCropMesh(seed.id);
+                    plot.cropMesh.scale.setScalar(0.2);
+                    plot.group.add(plot.cropMesh);
+
+                    // Show 3D Progress Bar
+                    plot.progressBar.group.visible = true;
+                    plot.progressBar.fill.scale.x = 0.01;
+
+                    sfx.playPop();
+                    showFloatingText(`-${seed.cost} 🪙`, clientX, clientY - 15, '#e74c3c');
+                    updateStatsUI();
+                } else {
+                    sfx.playError();
+                    showFloatingText('เงินไม่พอปลูก!', clientX, clientY - 15, '#e74c3c');
+                }
+                return;
+            }
+
+            // Case 2: Mature Crop -> Harvest
+            if (plot.isReady) {
+                const harvestedId = plot.cropId;
+                const cropInfo = CROPS_CONFIG[harvestedId];
+
+                GAME_STATE.inventory.push(harvestedId);
+
+                // Reset Plot
+                plot.group.remove(plot.cropMesh);
+                plot.cropMesh = null;
+                plot.cropId = null;
+                plot.isReady = false;
+                plot.elapsed = 0;
+                plot.dotMesh.visible = true;
+
+                sfx.playHarvest();
+                showFloatingText(`+${cropInfo.name} ${cropInfo.emoji}`, clientX, clientY - 15, '#2ecc71');
+                updateStatsUI();
+            } else {
+                // Still growing
+                sfx.playPop();
+                const remain = Math.ceil(plot.duration - plot.elapsed);
+                showFloatingText(`กำลังโต... (${remain}วิ)`, clientX, clientY - 15, '#f1c40f');
+            }
+        }
+
+        /**
+         * ============================================================================
+         * 7. MAIN ANIMATION & GAME LOOP
+         * ============================================================================
+         */
+        const clock = new THREE.Clock();
+        let smokeTimer = 0;
+        let effectSpawnTimer = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const dt = Math.min(clock.getDelta(), 0.1);
+            const elapsedTime = clock.getElapsedTime();
+
+            controls.update();
+
+            // 1. Animate Ocean Waves
+            for (let i = 0; i < oceanPosAttr.count; i++) {
+                const x = oceanPosAttr.getX(i);
+                const z = oceanPosAttr.getZ(i);
+                const wave = Math.sin(x * 0.25 + elapsedTime * 1.8) * 0.16 +
+                             Math.cos(z * 0.25 + elapsedTime * 1.4) * 0.16;
+                oceanPosAttr.setY(i, oceanInitialY[i] + wave);
+            }
+            oceanPosAttr.needsUpdate = true;
+
+            // 2. Gentle Tree Sway in the Wind
+            trees.forEach(t => {
+                t.group.rotation.z = Math.sin(elapsedTime * 1.6 + t.phase) * 0.035;
+                t.group.rotation.x = Math.cos(elapsedTime * 1.3 + t.phase) * 0.025;
+            });
+
+            // 3. Chimney Smoke Particles
+            smokeTimer += dt;
+            if (smokeTimer > 0.35) {
+                smokeTimer = 0;
+                spawnSmoke();
+            }
+            for (let i = smokeParticles.length - 1; i >= 0; i--) {
+                const p = smokeParticles[i];
+                p.life += dt;
+                if (p.life >= p.maxLife) {
+                    scene.remove(p.mesh);
+                    p.mesh.geometry.dispose();
+                    p.mesh.material.dispose();
+                    smokeParticles.splice(i, 1);
+                } else {
+                    const progress = p.life / p.maxLife;
+                    p.mesh.position.x += p.vx * dt;
+                    p.mesh.position.y += p.vy * dt;
+                    p.mesh.scale.setScalar(0.5 + progress * 0.9);
+                    p.mesh.material.opacity = 0.75 * (1 - progress);
+                }
+            }
+
+            // 4. Robot State, Animations & 2D Badge Tracking
+            if (GAME_STATE.robotState === 'buff') {
+                GAME_STATE.robotTimer -= dt;
+                robotGroup.rotation.y += dt * 6.0; // Happy spin
+                robotGroup.position.y = robotBasePos.y + Math.abs(Math.sin(elapsedTime * 8)) * 0.18;
+
+                effectSpawnTimer += dt;
+                if (effectSpawnTimer > 0.08) {
+                    effectSpawnTimer = 0;
+                    spawnWaterDroplet();
+                }
+
+                robotBadge.className = 'buff';
+                robotBadge.textContent = `รดน้ำ 💦 (${Math.ceil(GAME_STATE.robotTimer)}วิ)`;
+
+                if (GAME_STATE.robotTimer <= 0) {
+                    GAME_STATE.robotState = 'idle';
+                    robotGroup.rotation.y = 0.5;
+                    robotGroup.position.copy(robotBasePos);
+                }
+            } else if (GAME_STATE.robotState === 'broken') {
+                GAME_STATE.robotTimer -= dt;
+                // Shaking violently
+                robotGroup.position.x = robotBasePos.x + (Math.random() - 0.5) * 0.16;
+                robotGroup.position.z = robotBasePos.z + (Math.random() - 0.5) * 0.16;
+                robotGroup.rotation.z = (Math.random() - 0.5) * 0.22;
+
+                effectSpawnTimer += dt;
+                if (effectSpawnTimer > 0.12) {
+                    effectSpawnTimer = 0;
+                    spawnRobotSpark();
+                }
+
+                robotBadge.className = 'broken';
+                robotBadge.textContent = `พัง! (${Math.ceil(GAME_STATE.robotTimer)}วิ)`;
+
+                if (GAME_STATE.robotTimer <= 0) {
+                    GAME_STATE.robotState = 'idle';
+                    robotGroup.position.copy(robotBasePos);
+                    robotGroup.rotation.set(0, 0.5, 0);
+                }
+            } else {
+                // Idle gentle bobbing
+                robotGroup.position.y = robotBasePos.y + Math.sin(elapsedTime * 2.5) * 0.04;
+                robotBadge.className = '';
+                robotBadge.textContent = 'QUIZ 🤖';
+            }
+
+            // Update Robot 2D Badge Screen Position
+            const badgeAnchor = robotGroup.position.clone();
+            badgeAnchor.y += 2.65;
+            const badgeScreen = getScreenCoords(badgeAnchor);
+            robotBadge.style.left = `${badgeScreen.x}px`;
+            robotBadge.style.top = `${badgeScreen.y}px`;
+
+            // 5. Update Water Droplets & Sparks Physics
+            for (let i = effectParticles.length - 1; i >= 0; i--) {
+                const ep = effectParticles[i];
+                ep.life += dt;
+                ep.vy += ep.gravity * dt;
+                ep.mesh.position.x += ep.vx * dt;
+                ep.mesh.position.y += ep.vy * dt;
+                ep.mesh.position.z += ep.vz * dt;
+
+                // Bounce sparks on ground
+                if (ep.type === 'spark' && ep.mesh.position.y <= 0.95) {
+                    ep.mesh.position.y = 0.95;
+                    ep.vy = -ep.vy * 0.45;
+                    ep.vx *= 0.7;
+                    ep.vz *= 0.7;
+                }
+
+                if (ep.life >= ep.maxLife || (ep.type === 'water' && ep.mesh.position.y <= 0.95)) {
+                    scene.remove(ep.mesh);
+                    effectParticles.splice(i, 1);
+                }
+            }
+
+            // 6. Crop Growth & 3D Billboard Progress Bars
+            const growthMultiplier = GAME_STATE.robotState === 'buff' ? 1.5 : 1.0;
+
+            plots.forEach(plot => {
+                if (!plot.cropId) return;
+
+                if (!plot.isReady) {
+                    plot.elapsed += dt * growthMultiplier;
+                    const ratio = Math.min(plot.elapsed / plot.duration, 1.0);
+
+                    // Scale crop smoothly from 0.2 to 0.95
+                    if (plot.cropMesh) {
+                        const scale = 0.2 + ratio * 0.75;
+                        plot.cropMesh.scale.setScalar(scale);
+                    }
+
+                    // Update 3D Progress Bar & Billboard towards Camera
+                    plot.progressBar.fill.scale.x = Math.max(0.01, ratio);
+                    plot.progressBar.group.quaternion.copy(camera.quaternion);
+
+                    // Check Completion
+                    if (ratio >= 1.0) {
+                        plot.isReady = true;
+                        plot.progressBar.group.visible = false;
+                        if (plot.cropMesh) {
+                            plot.cropMesh.scale.setScalar(1.25); // Pop bigger when ready
+                        }
+                    }
+                } else if (plot.cropMesh) {
+                    // Ready state gentle pulse animation
+                    const pulse = 1.22 + Math.sin(elapsedTime * 5 + plot.index) * 0.08;
+                    plot.cropMesh.scale.setScalar(pulse);
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle Window Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start Game on Window Load
+        window.onload = () => {
+            updateStatsUI();
+            renderShopUI();
+            animate();
+        };
+    </script>
+</body>
+</html>
